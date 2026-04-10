@@ -1,5 +1,0 @@
-# Created at 2026-04-10T23:47:06.626
-Boot Manifest-JAR contains absolute paths in classpath 'D:\Zuhair\Sem 4th\SE\Automated Documentation Recovery Tool\docgen\frontend\DocGenUI\target\test-classes'
-Hint: <argLine>-Djdk.net.URLClassPath.disableClassPathURLCheck=true</argLine>
-'other' has different root
-
