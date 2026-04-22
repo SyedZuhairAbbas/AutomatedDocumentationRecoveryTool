@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DocGen — Automated Documentation Recovery</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #111118;
+      --border: #1e1e2e;
+      --purple: #cba6f7;
+      --blue: #89b4fa;
+      --green: #a6e3a1;
+      --yellow: #f9e2af;
+      --red: #f38ba8;
+      --text: #cdd6f4;
+      --muted: #6c7086;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      overflow-x: hidden;
+      cursor: none;
+    }
+
+    /* CUSTOM CURSOR */
+    .cursor {
+      width: 12px; height: 12px;
+      background: var(--purple);
+      border-radius: 50%;
+      position: fixed;
+      pointer-events: none;
+      z-index: 9999;
+      transition: transform 0.1s ease;
+      mix-blend-mode: difference;
+    }
+    .cursor-ring {
+      width: 36px; height: 36px;
+      border: 1px solid var(--purple);
+      border-radius: 50%;
+      position: fixed;
+      pointer-events: none;
+      z-index: 9998;
+      transition: all 0.15s ease;
+      opacity: 0.5;
+    }
+
+    /* NOISE OVERLAY */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 1;
+      opacity: 0.4;
+    }
+
+    /* NAV */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      padding: 20px 60px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(203,166,247,0.08);
+      background: rgba(10,10,15,0.8);
+      backdrop-filter: blur(20px);
+    }
+
+    .nav-logo {
+      font-family: 'Space Mono', monospace;
+      font-size: 18px;
+      color: var(--purple);
+      letter-spacing: -0.5px;
+    }
+
+    .nav-logo span { color: var(--text); }
+
+    .nav-links { display: flex; gap: 40px; }
+    .nav-links a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--text); }
+
+    /* HERO */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 120px 60px 80px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-glow {
+      position: absolute;
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(203,166,247,0.08) 0%, transparent 70%);
+      top: -100px; right: -100px;
+      pointer-events: none;
+      animation: pulse 4s ease-in-out infinite;
+    }
+
+    .hero-glow-2 {
+      position: absolute;
+      width: 400px; height: 400px;
+      background: radial-gradient(circle, rgba(137,180,250,0.06) 0%, transparent 70%);
+      bottom: 100px; left: -50px;
+      pointer-events: none;
+      animation: pulse 6s ease-in-out infinite reverse;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.1); opacity: 0.7; }
+    }
+
+    .hero-tag {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--purple);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      margin-bottom: 28px;
+      opacity: 0;
+      animation: fadeUp 0.6s ease forwards 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .hero-tag::before {
+      content: '';
+      width: 40px; height: 1px;
+      background: var(--purple);
+    }
+
+    .hero-title {
+      font-size: clamp(52px, 8vw, 96px);
+      font-weight: 800;
+      line-height: 0.95;
+      letter-spacing: -3px;
+      margin-bottom: 32px;
+      opacity: 0;
+      animation: fadeUp 0.6s ease forwards 0.4s;
+    }
+
+    .hero-title .line-1 { color: var(--text); display: block; }
+    .hero-title .line-2 { 
+      color: transparent;
+      -webkit-text-stroke: 1px rgba(203,166,247,0.4);
+      display: block;
+    }
+    .hero-title .line-3 { 
+      color: var(--purple);
+      display: block;
+    }
+
+    .hero-desc {
+      max-width: 520px;
+      font-size: 17px;
+      line-height: 1.7;
+      color: var(--muted);
+      margin-bottom: 48px;
+      opacity: 0;
+      animation: fadeUp 0.6s ease forwards 0.6s;
+      font-weight: 400;
+    }
+
+    .hero-desc strong { color: var(--text); font-weight: 600; }
+
+    .hero-actions {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      opacity: 0;
+      animation: fadeUp 0.6s ease forwards 0.8s;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--purple);
+      color: #0a0a0f;
+      padding: 16px 32px;
+      border-radius: 4px;
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      font-weight: 700;
+      text-decoration: none;
+      letter-spacing: 0.5px;
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-primary::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: white;
+      transform: translateX(-100%);
+      transition: transform 0.3s ease;
+    }
+
+    .btn-primary:hover::before { transform: translateX(0); }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 20px 40px rgba(203,166,247,0.2); }
+    .btn-primary span { position: relative; z-index: 1; }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 16px 32px;
+      border-radius: 4px;
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      text-decoration: none;
+      letter-spacing: 0.5px;
+      transition: all 0.2s ease;
+    }
+    .btn-secondary:hover { border-color: var(--purple); color: var(--purple); }
+
+    .hero-stats {
+      position: absolute;
+      right: 60px;
+      bottom: 80px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      opacity: 0;
+      animation: fadeUp 0.6s ease forwards 1s;
+    }
+
+    .stat {
+      text-align: right;
+      border-right: 2px solid var(--border);
+      padding-right: 20px;
+    }
+
+    .stat-number {
+      font-family: 'Space Mono', monospace;
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--purple);
+      line-height: 1;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    /* MARQUEE */
+    .marquee-section {
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 0;
+      overflow: hidden;
+      background: var(--surface);
+    }
+
+    .marquee-track {
+      display: flex;
+      gap: 48px;
+      animation: marquee 20s linear infinite;
+      width: max-content;
+    }
+
+    .marquee-item {
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 48px;
+    }
+
+    .marquee-item::after {
+      content: '//';
+      color: var(--purple);
+    }
+
+    @keyframes marquee {
+      from { transform: translateX(0); }
+      to { transform: translateX(-50%); }
+    }
+
+    /* HOW IT WORKS */
+    .section {
+      padding: 120px 60px;
+      position: relative;
+    }
+
+    .section-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--purple);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .section-label::before {
+      content: '';
+      width: 40px; height: 1px;
+      background: var(--purple);
+    }
+
+    .section-title {
+      font-size: clamp(32px, 4vw, 52px);
+      font-weight: 800;
+      letter-spacing: -2px;
+      margin-bottom: 64px;
+      line-height: 1.1;
+    }
+
+    /* STEPS */
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+    }
+
+    .step {
+      background: var(--bg);
+      padding: 40px 32px;
+      position: relative;
+      overflow: hidden;
+      transition: background 0.3s ease;
+    }
+
+    .step:hover { background: var(--surface); }
+
+    .step-number {
+      font-family: 'Space Mono', monospace;
+      font-size: 64px;
+      font-weight: 700;
+      color: rgba(203,166,247,0.06);
+      position: absolute;
+      top: 16px; right: 24px;
+      line-height: 1;
+    }
+
+    .step-icon {
+      font-size: 28px;
+      margin-bottom: 20px;
+    }
+
+    .step-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: var(--text);
+    }
+
+    .step-desc {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .step-tag {
+      display: inline-block;
+      margin-top: 20px;
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      padding: 4px 10px;
+      border-radius: 2px;
+      letter-spacing: 1px;
+    }
+
+    .tag-purple { background: rgba(203,166,247,0.1); color: var(--purple); }
+    .tag-blue { background: rgba(137,180,250,0.1); color: var(--blue); }
+    .tag-green { background: rgba(166,227,161,0.1); color: var(--green); }
+    .tag-yellow { background: rgba(249,226,175,0.1); color: var(--yellow); }
+
+    /* FEATURES */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+    }
+
+    .feature {
+      background: var(--bg);
+      padding: 36px 32px;
+      transition: background 0.3s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .feature::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--purple), transparent);
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform 0.3s ease;
+    }
+
+    .feature:hover::before { transform: scaleX(1); }
+    .feature:hover { background: var(--surface); }
+
+    .feature-icon { font-size: 24px; margin-bottom: 16px; }
+
+    .feature-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: var(--text);
+    }
+
+    .feature-desc {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    /* TECH STACK */
+    .tech-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 24px;
+    }
+
+    .tech-card {
+      border: 1px solid var(--border);
+      padding: 32px;
+      border-radius: 4px;
+      background: var(--surface);
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+      transition: border-color 0.3s;
+    }
+
+    .tech-card:hover { border-color: var(--purple); }
+
+    .tech-badge {
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      padding: 6px 12px;
+      border-radius: 2px;
+      letter-spacing: 1px;
+      white-space: nowrap;
+      font-weight: 700;
+    }
+
+    .tech-info h3 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .tech-info p {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* DOWNLOAD */
+    .download-section {
+      padding: 120px 60px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .download-section::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at center, rgba(203,166,247,0.05) 0%, transparent 70%);
+    }
+
+    .download-title {
+      font-size: clamp(36px, 5vw, 64px);
+      font-weight: 800;
+      letter-spacing: -2px;
+      margin-bottom: 20px;
+      position: relative;
+    }
+
+    .download-desc {
+      font-size: 16px;
+      color: var(--muted);
+      margin-bottom: 48px;
+      position: relative;
+    }
+
+    .download-box {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      border: 1px solid var(--border);
+      padding: 40px 60px;
+      border-radius: 4px;
+      background: var(--bg);
+      position: relative;
+    }
+
+    .download-box-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    .download-filename {
+      font-family: 'Space Mono', monospace;
+      font-size: 20px;
+      color: var(--green);
+      font-weight: 700;
+    }
+
+    .download-meta {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .btn-download {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--green);
+      color: #0a0a0f;
+      padding: 18px 48px;
+      border-radius: 4px;
+      font-family: 'Space Mono', monospace;
+      font-size: 14px;
+      font-weight: 700;
+      text-decoration: none;
+      letter-spacing: 0.5px;
+      transition: all 0.2s ease;
+      margin-top: 8px;
+    }
+
+    .btn-download:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 20px 40px rgba(166,227,161,0.2);
+    }
+
+    .requirements {
+      margin-top: 48px;
+      display: flex;
+      gap: 32px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .req-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .req-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+
+    /* FOOTER */
+    footer {
+      padding: 40px 60px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top: 1px solid var(--border);
+    }
+
+    .footer-left {
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .footer-left span { color: var(--purple); }
+
+    .footer-right {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 1px;
+    }
+
+    /* ANIMATIONS */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(32px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* SCROLLBAR */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--purple); }
+
+    @media (max-width: 768px) {
+      nav { padding: 16px 24px; }
+      .nav-links { display: none; }
+      .hero { padding: 100px 24px 60px; }
+      .hero-stats { display: none; }
+      .section { padding: 80px 24px; }
+      .steps { grid-template-columns: 1fr 1fr; }
+      .features-grid { grid-template-columns: 1fr; }
+      .tech-grid { grid-template-columns: 1fr; }
+      .download-section { padding: 80px 24px; }
+      footer { padding: 24px; flex-direction: column; gap: 12px; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="cursor" id="cursor"></div>
+  <div class="cursor-ring" id="cursorRing"></div>
+
+  <!-- NAV -->
+  <nav>
+    <div class="nav-logo">Doc<span>Gen</span></div>
+    <div class="nav-links">
+      <a href="#how-it-works">How it works</a>
+      <a href="#features">Features</a>
+      <a href="#stack">Tech Stack</a>
+      <a href="#download">Download</a>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-glow"></div>
+    <div class="hero-glow-2"></div>
+
+    <div class="hero-tag">SE Semester Project — Dawood University</div>
+
+    <h1 class="hero-title">
+      <span class="line-1">Recover</span>
+      <span class="line-2">Missing</span>
+      <span class="line-3">Documentation.</span>
+    </h1>
+
+    <p class="hero-desc">
+      <strong>DocGen</strong> automatically analyzes legacy Python codebases and generates 
+      human-readable documentation — no manual effort, no guesswork. 
+      Drop in undocumented code, get structured docs instantly.
+    </p>
+
+    <div class="hero-actions">
+      <a href="#download" class="btn-primary">
+        <span>⬇ Download App</span>
+      </a>
+      <a href="#how-it-works" class="btn-secondary">See how it works →</a>
+    </div>
+
+    <div class="hero-stats">
+      <div class="stat">
+        <div class="stat-number">AST</div>
+        <div class="stat-label">Powered Analysis</div>
+      </div>
+      <div class="stat">
+        <div class="stat-number">0ms</div>
+        <div class="stat-label">Manual Effort</div>
+      </div>
+      <div class="stat">
+        <div class="stat-number">100%</div>
+        <div class="stat-label">Local & Private</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MARQUEE -->
+  <div class="marquee-section">
+    <div class="marquee-track">
+      <div class="marquee-item">Python AST Parser</div>
+      <div class="marquee-item">FastAPI Backend</div>
+      <div class="marquee-item">JavaFX Desktop UI</div>
+      <div class="marquee-item">Markdown Export</div>
+      <div class="marquee-item">Function Extraction</div>
+      <div class="marquee-item">Class Detection</div>
+      <div class="marquee-item">Parameter Analysis</div>
+      <div class="marquee-item">Legacy Code Recovery</div>
+      <div class="marquee-item">Python AST Parser</div>
+      <div class="marquee-item">FastAPI Backend</div>
+      <div class="marquee-item">JavaFX Desktop UI</div>
+      <div class="marquee-item">Markdown Export</div>
+      <div class="marquee-item">Function Extraction</div>
+      <div class="marquee-item">Class Detection</div>
+      <div class="marquee-item">Parameter Analysis</div>
+      <div class="marquee-item">Legacy Code Recovery</div>
+    </div>
+  </div>
+
+  <!-- HOW IT WORKS -->
+  <section class="section" id="how-it-works">
+    <div class="section-label">Process</div>
+    <h2 class="section-title reveal">How DocGen Works</h2>
+
+    <div class="steps reveal">
+      <div class="step">
+        <div class="step-number">01</div>
+        <div class="step-icon">📂</div>
+        <div class="step-title">Upload File</div>
+        <div class="step-desc">Select any legacy Python source file from your machine using the file picker.</div>
+        <div class="step-tag tag-purple">JavaFX UI</div>
+      </div>
+      <div class="step">
+        <div class="step-number">02</div>
+        <div class="step-icon">⚡</div>
+        <div class="step-title">Parse & Analyze</div>
+        <div class="step-desc">Python's AST module converts source code into a structured syntax tree and walks every node.</div>
+        <div class="step-tag tag-blue">ast.parse()</div>
+      </div>
+      <div class="step">
+        <div class="step-number">03</div>
+        <div class="step-icon">🔍</div>
+        <div class="step-title">Extract Structure</div>
+        <div class="step-desc">Functions, classes, parameters, docstrings, and line numbers are extracted and returned as JSON.</div>
+        <div class="step-tag tag-yellow">FastAPI</div>
+      </div>
+      <div class="step">
+        <div class="step-number">04</div>
+        <div class="step-icon">📄</div>
+        <div class="step-title">Generate Docs</div>
+        <div class="step-desc">Structured documentation is rendered in the UI and exported as a clean Markdown file.</div>
+        <div class="step-tag tag-green">Markdown</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section class="section" id="features" style="padding-top:0">
+    <div class="section-label">Capabilities</div>
+    <h2 class="section-title reveal">What DocGen Extracts</h2>
+
+    <div class="features-grid reveal">
+      <div class="feature">
+        <div class="feature-icon">⚙️</div>
+        <div class="feature-title">Function Detection</div>
+        <div class="feature-desc">Automatically identifies every standalone function in the codebase, including its name and exact line number.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🏛</div>
+        <div class="feature-title">Class Analysis</div>
+        <div class="feature-desc">Detects class definitions and maps all their methods, constructors, and internal structure.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">📥</div>
+        <div class="feature-title">Parameter Extraction</div>
+        <div class="feature-desc">Lists all parameters for every function and method, automatically excluding the self reference.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">📝</div>
+        <div class="feature-title">Docstring Recovery</div>
+        <div class="feature-desc">Recovers any existing docstrings embedded in the code. Generates smart descriptions when none exist.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">📍</div>
+        <div class="feature-title">Line Mapping</div>
+        <div class="feature-desc">Every extracted element is mapped to its exact line number in the original source file for easy navigation.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">💾</div>
+        <div class="feature-title">Markdown Export</div>
+        <div class="feature-desc">One-click export of all generated documentation into a clean, shareable Markdown file.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TECH STACK -->
+  <section class="section" id="stack" style="padding-top:0">
+    <div class="section-label">Architecture</div>
+    <h2 class="section-title reveal">Tech Stack</h2>
+
+    <div class="tech-grid reveal">
+      <div class="tech-card">
+        <div class="tech-badge tag-blue">FRONTEND</div>
+        <div class="tech-info">
+          <h3>JavaFX</h3>
+          <p>Cross-platform desktop UI framework. Handles file picking, result display, and Markdown export with a clean dark themed interface.</p>
+        </div>
+      </div>
+      <div class="tech-card">
+        <div class="tech-badge tag-yellow">BACKEND</div>
+        <div class="tech-info">
+          <h3>Python FastAPI</h3>
+          <p>High-performance REST API server. Receives uploaded files, processes them, and returns structured JSON responses.</p>
+        </div>
+      </div>
+      <div class="tech-card">
+        <div class="tech-badge tag-purple">ANALYSIS</div>
+        <div class="tech-info">
+          <h3>Python AST Module</h3>
+          <p>Built-in Abstract Syntax Tree parser. Converts raw source code into a navigable tree structure without executing any code.</p>
+        </div>
+      </div>
+      <div class="tech-card">
+        <div class="tech-badge tag-green">PARSING</div>
+        <div class="tech-info">
+          <h3>Gson + HttpClient</h3>
+          <p>Java's built-in HttpClient handles multipart file uploads. Gson parses the JSON response into structured documentation output.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DOWNLOAD -->
+  <section class="download-section" id="download">
+    <div class="section-label" style="justify-content:center">Get Started</div>
+    <h2 class="download-title">Download DocGen</h2>
+    <p class="download-desc">Windows desktop application. No installation required — just extract and run.</p>
+
+    <div class="download-box">
+      <div class="download-box-label">Latest Release</div>
+      <div class="download-filename">DocGen_v1.0.zip</div>
+      <div class="download-meta">Windows x64 · JavaFX · Python Backend Included</div>
+      <a href="DocGen_v1.0.zip" class="btn-download">⬇ Download ZIP</a>
+    </div>
+
+    <div class="requirements">
+      <div class="req-item"><div class="req-dot"></div>Windows 10 or later</div>
+      <div class="req-item"><div class="req-dot"></div>Java 21+ installed</div>
+      <div class="req-item"><div class="req-dot"></div>No Python needed</div>
+      <div class="req-item"><div class="req-dot"></div>Run main.exe first, then DocGen.exe</div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-left">
+      Built by <span>Zuhair</span> — Software Engineering Semester Project
+    </div>
+    <div class="footer-right">
+      DAWOOD UNIVERSITY OF ENGINEERING & TECHNOLOGY · 2026
+    </div>
+  </footer>
+
+  <script>
+    // Custom cursor
+    const cursor = document.getElementById('cursor');
+    const ring = document.getElementById('cursorRing');
+    let mouseX = 0, mouseY = 0, ringX = 0, ringY = 0;
+
+    document.addEventListener('mousemove', e => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+      cursor.style.left = mouseX - 6 + 'px';
+      cursor.style.top = mouseY - 6 + 'px';
+    });
+
+    function animateRing() {
+      ringX += (mouseX - ringX - 18) * 0.12;
+      ringY += (mouseY - ringY - 18) * 0.12;
+      ring.style.left = ringX + 'px';
+      ring.style.top = ringY + 'px';
+      requestAnimationFrame(animateRing);
+    }
+    animateRing();
+
+    document.querySelectorAll('a, button').forEach(el => {
+      el.addEventListener('mouseenter', () => {
+        cursor.style.transform = 'scale(2.5)';
+        ring.style.transform = 'scale(1.5)';
+      });
+      el.addEventListener('mouseleave', () => {
+        cursor.style.transform = 'scale(1)';
+        ring.style.transform = 'scale(1)';
+      });
+    });
+
+    // Scroll reveal
+    const reveals = document.querySelectorAll('.reveal');
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.classList.add('visible');
+        }
+      });
+    }, { threshold: 0.1 });
+
+    reveals.forEach(el => observer.observe(el));
+  </script>
+</body>
+</html>
